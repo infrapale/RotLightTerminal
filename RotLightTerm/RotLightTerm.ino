@@ -22,18 +22,40 @@ enum enDigitalPins
   dpInEncoderC=9
 };
 
+typedef void (*pMenuFunc)(void);
+
+struct MenuEntryStruct {
+  char name[10];
+  pMenuFunc func;
+};
+
+void nop(void)
+{
+    int dmy = 42;
+    Serial.println(dmy);
+}
+
+struct MenuEntryStruct menu[] = {
+    {"123456789", &nop}
+};
+
+
+
 int position;
 
 void setup()
 {
+       
     rotenc_init(dpInEncoderA, dpInEncoderB, dpInEncoderC);
     rotenc_set_step(0, 0, 10, 1);
-
     // init serial communication
     delay(2000);
     while (!Serial); // wait until serial console is open, remove if not tethered to computer
     Serial.begin(115200); 
     Serial.println("Ready to begin");
+    Serial.println(menu[0].name);
+    menu[0].func();
+    
 }
 
 
