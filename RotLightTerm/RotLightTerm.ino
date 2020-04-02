@@ -26,7 +26,8 @@ typedef void (*pMenuFunc)(int);
 
 struct MenuEntryStruct {
   char tag[4];
-  char dive[4];
+  char down[4];
+  char up[4];
   char name[10];
   pMenuFunc func;
   int param;
@@ -36,6 +37,7 @@ struct MenuPtrStruct {
     uint16_t first;
     uint16_t last;
     uint16_t nbr;
+    uint16_t indx;
     
 } menu_handle;
 
@@ -45,21 +47,22 @@ void nop(int x)
 }
 
 struct MenuEntryStruct menu[] = {
-    {"top","MH1","MH1      ", &nop,69},
-    {"top","MH2","MH2      ", &nop,42},
-    {"top","TUP","Tupa     ", &nop,42},
-    {"---","---","         ", &nop, 0},
-    {"MH1","---","MH1 1    ", &nop,69},
-    {"MH1","---","MH1 2    ", &nop,69},
-    {"MH1","---","MH1 3    ", &nop,69},
-    {"---","---","         ", &nop, 0},
-    {"MH2","---","MH2 1    ", &nop,69},
-    {"MH2","---","MH2 2    ", &nop,69},
-    {"---","---","         ", &nop, 0},
-    {"TUP","---","Tupa 1   ", &nop,69},
-    {"TUP","---","Tupa 2   ", &nop,69},
-    {"---","---","         ", &nop, 0},
-    {"!!!","---","         ", &nop, 0}    
+  //  tag   down  up    name        func param
+    {"Top","MH1","Top","MH1      ", &nop,69},
+    {"Top","MH2","Top","MH2      ", &nop,42},
+    {"Top","TUP","Top","Tupa     ", &nop,42},
+    {"---","---","Top","         ", &nop, 0},
+    {"MH1","---","Top","MH1 1    ", &nop,69},
+    {"MH1","---","Top","MH1 2    ", &nop,69},
+    {"MH1","---","Top","MH1 3    ", &nop,69},
+    {"---","---","Top","         ", &nop, 0},
+    {"MH2","---","Top","MH2 1    ", &nop,69},
+    {"MH2","---","Top","MH2 2    ", &nop,69},
+    {"---","---","Top","         ", &nop, 0},
+    {"TUP","---","Top","Tupa 1   ", &nop,69},
+    {"TUP","---","Top","Tupa 2   ", &nop,69},
+    {"---","---","Top","         ", &nop, 0},
+    {"!!!","---","Top","         ", &nop, 0}    
 };
 
 
@@ -72,21 +75,21 @@ uint16_t find_menu_tag( MenuEntryStruct *menu, MenuPtrStruct *m_handle, char *ta
     bool  done = false;
     char tags[3][4] = {"123", "---", "!!!"};
     strcpy(tags[0],tag);
-    Serial.println(tag);
+    //Serial.println(tag);
     m_handle->first = -1;
     m_handle->last = -1;
     m_handle->nbr = 0;
     while (! done){
-        Serial.print("i="); Serial.println(i);
+        //Serial.print("i="); Serial.println(i);
         uint8_t tag_indx = 0;
-        Serial.print("menu="); Serial.println(menu[i].tag);
+        //Serial.print("menu="); Serial.println(menu[i].tag);
         for (tag_indx = 0; tag_indx < 3; tag_indx++){
             if ( strcmp(tags[tag_indx],menu[i].tag) ==0) {
                 break; 
             } 
         }
-        Serial.print("tag_indx="); Serial.println(tag_indx);
-        Serial.print("Ph=");Serial.println(ph);
+        //Serial.print("tag_indx="); Serial.println(tag_indx);
+        //Serial.print("Ph=");Serial.println(ph);
         switch(ph){
         case 0:  // not yet found
             switch(tag_indx){
@@ -108,8 +111,9 @@ uint16_t find_menu_tag( MenuEntryStruct *menu, MenuPtrStruct *m_handle, char *ta
                     break;
                 case 1:  // == "---"
                     if (m_handle->first >= 0){
-                        m_handle->last = i;
-                        m_handle->nbr = m_handle->last - m_handle->first ;  
+                        m_handle->last = i-1;
+                        m_handle->nbr = m_handle->last - m_handle->first + 1 ; 
+                        m_handle->indx = m_handle->first;
                     }    
                     else {
                         m_handle->nbr = 0;  
@@ -141,10 +145,10 @@ void setup()
     Serial.println("Ready to begin");
     Serial.println(menu[0].name);
     menu[0].func(menu[0].param);
-    uint16_t n = find_menu_tag(menu,&menu_handle,"MH2");
-    Serial.println(menu_handle.first);
-    Serial.println(menu_handle.last);
-    Serial.println(menu_handle.nbr);
+    uint16_t n = find_menu_tag(menu,&menu_handle,"Top");
+    //Serial.println(menu_handle.first);
+    //Serial.println(menu_handle.last);
+    //Serial.println(menu_handle.nbr);
     
 }
 
@@ -152,24 +156,37 @@ void setup()
 void loop()
 {
   int last_pos = 0;
+  bool changed = true;
+  
   while(true){
-    position = get_pos();
-    if(position != last_pos){
-      Serial.print(last_pos);
-      Serial.print(" ");
-      Serial.print(position);
-      Serial.print(" ");
-      if(position > last_pos){
-	        Serial.println("+");
-      }
-      else{
-	        Serial.println("-");
-      }
-      last_pos = position;
+    if (changed){
+        Serial.println(menu[menu_handle.indx].name);
+        rotenc_set_step(menu_handle.indx, menu_handle.first, menu_handle.last, 1);
+        changed = false;
     }
-    uint8_t pressed = rd_pressed();
-    if(pressed != 0){
-        Serial.println(pressed);
+ 
+    position = get_pos();
+    if( position != last_pos){
+        menu_handle.indx = position;
+        last_pos = position;
+        changed = true;
+    } else
+    {
+        uint8_t pressed = rd_pressed();
+        switch (pressed)
+        {
+        case 1: // short push
+            if ( strcmp(menu[menu_handle.indx].down,"---" ) != 0){
+                uint16_t n = find_menu_tag(menu,&menu_handle, menu[menu_handle.indx].down); 
+                if( n== 0) {
+                     n = find_menu_tag(menu,&menu_handle,"Top");
+                }
+            }
+            changed = true;
+            break;  
+            Serial.println(pressed);
+      
+        }
     }
   }
 }
